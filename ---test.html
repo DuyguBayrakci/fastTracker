@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FastTracker Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+      }
+      .container {
+        text-align: center;
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .title {
+        font-size: 32px;
+        font-weight: bold;
+        color: #4a90e2;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        font-size: 16px;
+        color: #666666;
+        margin-bottom: 30px;
+      }
+      .timer {
+        font-size: 48px;
+        font-weight: bold;
+        color: #4a90e2;
+        margin: 20px 0;
+      }
+      .status {
+        font-size: 16px;
+        color: #7ed321;
+        font-weight: 600;
+      }
+      .tabs {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 30px;
+        gap: 20px;
+      }
+      .tab {
+        padding: 10px;
+        background: #f0f0f0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #4a90e2;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="title">🍽️ FastTracker</div>
+      <div class="subtitle">Intermittent Fasting Uygulaması</div>
+
+      <div class="timer">16:00:00</div>
+      <div class="status">Oruç Devam Ediyor</div>
+
+      <div class="tabs">
+        <div class="tab">🏠 Ana Sayfa</div>
+        <div class="tab">📋 Planlar</div>
+        <div class="tab">📊 İstatistik</div>
+        <div class="tab">👤 Profil</div>
+      </div>
+    </div>
+
+    <script>
+      console.log('FastTracker Test Sayfası Yüklendi!');
+      document.querySelector('.timer').onclick = function () {
+        alert('Timer çalışıyor!');
+      };
+    </script>
+  </body>
+</html>

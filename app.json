@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "FastTracker",
+    "slug": "fasttracker",
+    "version": "1.0.0",
+    "main": "index.js",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fasttracker.app"
+    },
+    "android": {
+      "package": "com.fasttracker.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d2721b6a-d20c-48bf-8d82-8cb5dc6469b1"
+      }
+    },
+    "owner": "duygubayrakci"
+  }
+}
