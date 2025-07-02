@@ -11,9 +11,15 @@ import {
 } from 'react-native';
 import type { ProfileScreenProps } from '../types/navigation';
 import { useFasting } from '../context/FastingContext';
+import UserIcon from '../components/common/UserIcon';
+const FontAwesome = require('react-native-vector-icons/FontAwesome').default;
 
 const MENU_ITEMS = [
-  { id: '1', title: 'Profil Düzenle', icon: '👤' },
+  {
+    id: '1',
+    title: 'Profil Düzenle',
+    icon: <UserIcon size={24} />,
+  },
   { id: '2', title: 'Tema', icon: '🌙' },
   { id: '3', title: 'Dil', icon: '🌍' },
   { id: '4', title: 'Hakkında', icon: 'ℹ️' },
@@ -152,8 +158,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Switch
               value={state.notificationsEnabled}
               onValueChange={handleNotificationToggle}
-              trackColor={{ false: '#E1E5E9', true: '#4A90E2' }}
-              thumbColor={state.notificationsEnabled ? '#FFFFFF' : '#FFFFFF'}
+              trackColor={{ false: '#E1E5E9', true: '#ffab91' }}
+              thumbColor={state.notificationsEnabled ? '#ff7043' : '#FFFFFF'}
             />
           </View>
 
@@ -202,16 +208,19 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           <View style={styles.notificationInfo}>
             <Text style={styles.notificationTitle}>🔔 Aktif Hatırlatmalar</Text>
             <Text style={styles.notificationText}>
-              • Oruç başlama ve bitiş hatırlatmaları
+              <span className="notificationDot">•</span> Oruç başlama ve bitiş
+              hatırlatmaları
             </Text>
             <Text style={styles.notificationText}>
-              • Günlük motivasyon mesajları (18:00)
+              <span className="notificationDot">•</span> Günlük motivasyon
+              mesajları (18:00)
             </Text>
             <Text style={styles.notificationText}>
-              • Su içme hatırlatması (12:00)
+              <span className="notificationDot">•</span> Su içme hatırlatması
+              (12:00)
             </Text>
             <Text style={styles.notificationText}>
-              • İlerleme güncellemeleri
+              <span className="notificationDot">•</span> İlerleme güncellemeleri
             </Text>
           </View>
         )}
@@ -232,18 +241,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#16213e',
+    borderBottomColor: '#e0e0e0',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#333333',
     textAlign: 'center',
   },
   content: {
@@ -251,36 +260,38 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   profileCard: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#f8f9fa',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#0f3460',
+    borderColor: '#e9ecef',
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#0f3460',
+    backgroundColor: '#f8f9fa',
+    borderColor: '#e1e1e1',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   avatarText: {
     fontSize: 32,
-    color: '#64b5f6',
+    color: '#ffffff',
   },
   name: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#ff7043',
     marginBottom: 8,
   },
   email: {
     fontSize: 16,
-    color: '#64b5f6',
+    color: '#666666',
     marginBottom: 20,
   },
   userStats: {
@@ -294,27 +305,27 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#64b5f6',
+    color: '#ff7043',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#888',
+    color: '#666666',
     textAlign: 'center',
   },
   menuSection: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#f8f9fa',
     borderRadius: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#0f3460',
+    borderColor: '#e9ecef',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0f3460',
+    borderBottomColor: '#e9ecef',
   },
   menuIcon: {
     fontSize: 20,
@@ -328,16 +339,16 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#333333',
     marginBottom: 2,
   },
   menuSubtitle: {
     fontSize: 14,
-    color: '#888',
+    color: '#666666',
   },
   menuArrow: {
     fontSize: 18,
-    color: '#64b5f6',
+    color: '#ff7043',
     fontWeight: 'bold',
   },
   appInfo: {
@@ -347,36 +358,39 @@ const styles = StyleSheet.create({
   appInfoTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#64b5f6',
+    color: '#ff7043',
     marginBottom: 8,
   },
   appInfoVersion: {
     fontSize: 16,
-    color: '#888',
+    color: '#666666',
     marginBottom: 4,
   },
   appInfoDescription: {
     fontSize: 14,
-    color: '#888',
+    color: '#666666',
     textAlign: 'center',
   },
   notificationInfo: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#f8f9fa',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#2d5016',
+    borderColor: '#d4edda',
   },
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#81c784',
+    color: '#ff7043',
     marginBottom: 8,
   },
   notificationText: {
     fontSize: 14,
-    color: '#b3b3b3',
+    color: '#666666',
     marginBottom: 4,
+  },
+  notificationDot: {
+    color: '#ff7043',
   },
 });

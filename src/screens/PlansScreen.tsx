@@ -7,140 +7,80 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import type { PlansScreenProps } from '../types/navigation';
-import { useFasting, FASTING_PLANS } from '../context/FastingContext';
+import type { PlanListScreenProps } from '../types/navigation';
+import { useFasting } from '../context/FastingContext';
+import { FASTING_PLANS, FastingPlan } from '../constants/fastingPlans';
 
-const PLAN_DETAILS = {
-  '16:8': {
-    name: '16:8',
-    description: '16 saat oruç, 8 saat yemek',
-    benefits: [
-      'Başlangıç için ideal',
-      'Günlük rutine uygun',
-      'Kolay sürdürülebilir',
-    ],
-    difficulty: 'Kolay',
-    popular: true,
-  },
-  '18:6': {
-    name: '18:6',
-    description: '18 saat oruç, 6 saat yemek',
-    benefits: ['Orta seviye', 'Hızlı sonuçlar', 'Daha az yemek zamanı'],
-    difficulty: 'Orta',
-    popular: false,
-  },
-  '20:4': {
-    name: '20:4',
-    description: '20 saat oruç, 4 saat yemek',
-    benefits: ['İleri seviye', 'Güçlü autophagy', 'Maksimum fayda'],
-    difficulty: 'Zor',
-    popular: false,
-  },
-  OMAD: {
-    name: 'OMAD',
-    description: '24 saat oruç, 1 öğün',
-    benefits: ['Tek öğün', 'Maksimum oruç', 'Güçlü disiplin'],
-    difficulty: 'Çok Zor',
-    popular: false,
-  },
-};
+// Kategori sırasını belirle
+const CATEGORY_ORDER = ['Yeni Başlayanlar', 'Deneyimliler', 'Profesyoneller'];
 
-export default function PlansScreen({ navigation }: PlansScreenProps) {
-  const { state, changePlan } = useFasting();
+const CheckIcon = () => (
+  <View style={styles.checkIcon}>
+    <Text style={styles.checkIconText}>✓</Text>
+  </View>
+);
 
-  const handleSelectPlan = (planName: string) => {
-    changePlan(planName);
-    // Ana sayfaya dön
-    navigation.navigate('Home');
+const PlanCard = ({
+  plan,
+  isActive,
+  onPress,
+}: {
+  plan: FastingPlan;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity style={styles.planCard} onPress={onPress}>
+    <View>
+      <Text style={styles.planName}>{plan.name}</Text>
+      <View style={styles.planDetails}>
+        <Text style={styles.planDetailText}>
+          • {plan.fastingHours} saat oruç
+        </Text>
+        <Text style={styles.planDetailText}>
+          • {plan.eatingHours} saat yeme
+        </Text>
+      </View>
+    </View>
+    {isActive ? <CheckIcon /> : <Text style={styles.arrowIcon}>›</Text>}
+  </TouchableOpacity>
+);
+
+export default function PlansScreen({ navigation }: PlanListScreenProps) {
+  const { state } = useFasting();
+
+  const handleSelectPlan = (planId: string) => {
+    // Plan detay ekranına yönlendir
+    navigation.navigate('PlanDetail', { planId });
   };
 
-  const formatDuration = (planName: string) => {
-    const hours = FASTING_PLANS[planName as keyof typeof FASTING_PLANS] / 3600;
-    return `${hours} saat`;
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Kolay':
-        return '#7ED321';
-      case 'Orta':
-        return '#F5A623';
-      case 'Zor':
-        return '#F5A623';
-      case 'Çok Zor':
-        return '#D0021B';
-      default:
-        return '#666666';
-    }
-  };
+  const plansByCategory = Object.values(FASTING_PLANS).reduce(
+    (acc, plan) => {
+      if (!acc[plan.category]) {
+        acc[plan.category] = [];
+      }
+      acc[plan.category].push(plan);
+      return acc;
+    },
+    {} as Record<string, FastingPlan[]>,
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Oruç Planları</Text>
-        <Text style={styles.subtitle}>Size uygun planı seçin</Text>
-        <Text style={styles.currentPlan}>
-          Aktif Plan:{' '}
-          <Text style={styles.currentPlanName}>{state.fastingPlan}</Text>
-        </Text>
-      </View>
-
       <ScrollView style={styles.content}>
-        {Object.entries(PLAN_DETAILS).map(([key, plan]) => (
-          <TouchableOpacity
-            key={key}
-            style={[
-              styles.planCard,
-              state.fastingPlan === key && styles.activePlanCard,
-            ]}
-            onPress={() => handleSelectPlan(key)}
-          >
-            <View style={styles.planHeader}>
-              <View style={styles.planTitleContainer}>
-                <Text
-                  style={[
-                    styles.planName,
-                    state.fastingPlan === key && styles.activePlanName,
-                  ]}
-                >
-                  {plan.name}
-                </Text>
-                <Text style={styles.planDuration}>{formatDuration(key)}</Text>
-              </View>
-              <View style={styles.badges}>
-                {plan.popular && (
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularText}>Popüler</Text>
-                  </View>
-                )}
-                <View
-                  style={[
-                    styles.difficultyBadge,
-                    { backgroundColor: getDifficultyColor(plan.difficulty) },
-                  ]}
-                >
-                  <Text style={styles.difficultyText}>{plan.difficulty}</Text>
-                </View>
-              </View>
-            </View>
+        <Text style={styles.title}>Oruç Tipini Değiştir</Text>
 
-            <Text style={styles.planDescription}>{plan.description}</Text>
-
-            <View style={styles.benefitsContainer}>
-              <Text style={styles.benefitsTitle}>Faydalar:</Text>
-              {plan.benefits.map((benefit, index) => (
-                <Text key={index} style={styles.benefitItem}>
-                  • {benefit}
-                </Text>
-              ))}
-            </View>
-
-            {state.fastingPlan === key && (
-              <View style={styles.activeIndicator}>
-                <Text style={styles.activeText}>✓ Aktif Plan</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        {CATEGORY_ORDER.map(category => (
+          <View key={category}>
+            <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+            {plansByCategory[category]?.map(plan => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                isActive={state.fastingPlan === plan.id}
+                onPress={() => handleSelectPlan(plan.id)}
+              />
+            ))}
+          </View>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -150,132 +90,62 @@ export default function PlansScreen({ navigation }: PlansScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  header: {
-    padding: 20,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E1E5E9',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 8,
-  },
-  currentPlan: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  currentPlanName: {
-    fontWeight: 'bold',
-    color: '#4A90E2',
   },
   content: {
     flex: 1,
     padding: 20,
   },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  categoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8A8A8E',
+    marginBottom: 10,
+    marginLeft: 5,
+  },
   planCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F2F2F7',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  activePlanCard: {
-    borderColor: '#4A90E2',
-    backgroundColor: '#F0F7FF',
-  },
-  planHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  planTitleContainer: {
-    flex: 1,
-  },
-  planName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4A90E2',
-  },
-  activePlanName: {
-    color: '#2E7CE8',
-  },
-  planDuration: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 2,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  popularBadge: {
-    backgroundColor: '#7ED321',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  popularText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  difficultyBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  difficultyText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  planDescription: {
-    fontSize: 16,
-    color: '#666666',
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  benefitsContainer: {
-    marginTop: 8,
-  },
-  benefitsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 4,
-  },
-  benefitItem: {
-    fontSize: 14,
-    color: '#666666',
-    lineHeight: 20,
-    marginLeft: 8,
-  },
-  activeIndicator: {
-    marginTop: 12,
-    padding: 8,
-    backgroundColor: '#4A90E2',
-    borderRadius: 8,
     alignItems: 'center',
   },
-  activeText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  planName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  planDetails: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  planDetailText: {
+    color: '#3C3C43',
+    opacity: 0.6,
+  },
+  arrowIcon: {
+    fontSize: 24,
+    color: '#3C3C43',
+    opacity: 0.3,
+  },
+  checkIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF7043',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkIconText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

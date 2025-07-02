@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationService from '../services/NotificationService';
 import { FastingSession } from '../types';
 import { FASTING_PLANS, FastingPlan } from '../constants/fastingPlans';
+import type { Milestone } from '../types/fasting';
 
 interface FastingState {
   isRunning: boolean;
@@ -36,11 +37,13 @@ interface FastingContextType {
 
 const FastingContext = createContext<FastingContextType | undefined>(undefined);
 
+const DEFAULT_PLAN = '16:8';
+
 export function FastingProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FastingState>({
     isRunning: false,
-    timeLeft: FASTING_PLANS['16:8'],
-    fastingPlan: '16:8',
+    timeLeft: FASTING_PLANS[DEFAULT_PLAN].durationSeconds,
+    fastingPlan: DEFAULT_PLAN,
     startTime: null,
     endTime: null,
     sessions: [],
@@ -48,6 +51,7 @@ export function FastingProvider({ children }: { children: ReactNode }) {
   });
 
   const scheduledNotificationIdsRef = useRef<string[]>([]);
+  const lastNotifiedMilestoneRef = useRef<Milestone | null>(null);
   const notificationService = NotificationService;
 
   // 💾 State persistence - AsyncStorage'dan yükle
@@ -57,6 +61,19 @@ export function FastingProvider({ children }: { children: ReactNode }) {
         const persistedState = await AsyncStorage.getItem('fastingState');
         if (persistedState) {
           const parsed = JSON.parse(persistedState);
+
+          // Eğer kaydedilmiş plan artık geçerli değilse varsayılana dön
+          if (!FASTING_PLANS[parsed.fastingPlan]) {
+            console.warn(
+              `WARN: Kayıtlı plan '${parsed.fastingPlan}' artık geçerli değil. Varsayılan plana dönülüyor.`,
+            );
+            parsed.fastingPlan = DEFAULT_PLAN;
+            parsed.timeLeft = FASTING_PLANS[DEFAULT_PLAN].durationSeconds;
+            parsed.isRunning = false;
+            parsed.startTime = null;
+            parsed.endTime = null;
+          }
+
           // Date objelerini restore et
           if (parsed.startTime) parsed.startTime = new Date(parsed.startTime);
           if (parsed.endTime) parsed.endTime = new Date(parsed.endTime);
@@ -158,7 +175,7 @@ export function FastingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Timer'ın durumu true -> false olarak değiştiyse VE süre dolduğu için durduysa
     if (prevIsRunning.current && !state.isRunning && state.timeLeft === 0) {
-      console.log('🏁 Oturum tamamlandı, completeSession tetikleniyor...');
+      console.log('✅ Oturum tamamlandı, completeSession tetikleniyor...');
       completeSession();
     }
     // Her render'da bir önceki isRunning durumunu güncelle
@@ -220,10 +237,58 @@ export function FastingProvider({ children }: { children: ReactNode }) {
     }
   }, [state.isRunning, state.startTime, state.notificationsEnabled]);
 
+  // Bu yeni useEffect, SADECE dönüm noktası bildirimlerini yönetir.
+  useEffect(() => {
+    if (!state.isRunning || !state.notificationsEnabled) {
+      if (!state.isRunning) {
+        // Oruç durduysa, son bildirim gönderilen milestone'u sıfırla.
+        lastNotifiedMilestoneRef.current = null;
+      }
+      return;
+    }
+
+    const plan = FASTING_PLANS[state.fastingPlan];
+    if (!plan || !plan.milestones || plan.milestones.length === 0) return;
+
+    const totalTime = plan.durationSeconds;
+    if (totalTime === 0) return;
+
+    const elapsed = totalTime - state.timeLeft;
+    const progressPercent = (elapsed / totalTime) * 100;
+
+    const currentMilestone = [...plan.milestones]
+      .reverse()
+      .find(m => progressPercent >= m.percentage);
+
+    if (
+      currentMilestone &&
+      currentMilestone.name !== lastNotifiedMilestoneRef.current?.name
+    ) {
+      console.log(
+        `🔔 Dönüm noktasına ulaşıldı: ${currentMilestone.name}. Bildirim gönderiliyor...`,
+      );
+      notificationService.sendLocalNotification({
+        id: `milestone-${currentMilestone.name}-${Date.now()}`,
+        title: `${currentMilestone.icon} ${currentMilestone.name}`,
+        body: currentMilestone.description,
+        data: { type: 'milestone-reached', milestone: currentMilestone.name },
+      });
+      lastNotifiedMilestoneRef.current = currentMilestone;
+    }
+  }, [
+    state.timeLeft,
+    state.isRunning,
+    state.fastingPlan,
+    state.notificationsEnabled,
+  ]);
+
   const scheduleNotificationsForSession = useCallback(
     async (startTime: Date, plan: string): Promise<string[]> => {
       const notificationIds: string[] = [];
-      const duration = FASTING_PLANS[plan as FastingPlan];
+      const planDetails = FASTING_PLANS[plan];
+      if (!planDetails) return [];
+
+      const duration = planDetails.durationSeconds;
       const endTime = new Date(startTime.getTime() + duration * 1000);
 
       // Oruç bitiş hatırlatması
@@ -249,183 +314,119 @@ export function FastingProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const startTimer = useCallback(() => {
+  // Prensip 5: State değişikliklerini yöneten merkezi fonksiyonlar (Reducer alternatifi)
+  const startTimer = () => {
     console.log('🚀 startTimer çağrıldı (sadece state günceller)');
-
     const now = new Date();
+    const planDuration =
+      FASTING_PLANS[state.fastingPlan as keyof typeof FASTING_PLANS]
+        .durationSeconds;
+    const endTime = new Date(now.getTime() + planDuration * 1000);
 
-    setState(prev => {
-      const duration = FASTING_PLANS[prev.fastingPlan as FastingPlan] * 1000;
-      const endTime = new Date(now.getTime() + duration);
+    console.log('📅 Start time:', now.toISOString());
+    console.log('📅 End time:', endTime.toISOString());
+    console.log('⏱️ Duration:', planDuration, 'seconds');
 
-      console.log('📅 Start time:', now);
-      console.log('📅 End time:', endTime);
-      console.log('⏱️ Duration:', duration / 1000, 'seconds');
+    setState(prev => ({
+      ...prev,
+      isRunning: true,
+      startTime: now,
+      endTime: endTime,
+      timeLeft: planDuration, // Timer'ı tam süreden başlat
+    }));
+  };
 
-      const newState: FastingState = {
-        ...prev,
-        isRunning: true,
-        startTime: now,
-        endTime: endTime,
-        timeLeft: Math.floor(duration / 1000),
-      };
-      saveState(newState); // Yeni state'i kaydet
-      return newState;
-    });
-
-    console.log('✅ Timer state güncellendi, useEffect tetiklenecek.');
-  }, []);
-
-  const pauseTimer = useCallback(() => {
+  const pauseTimer = () => {
     console.log('⏸️ pauseTimer çağrıldı');
+    setState(prev => ({ ...prev, isRunning: false }));
+  };
 
-    setState(prev => {
-      // Eğer aktif bir oruç varsa ve duraklatılıyorsa, cancelled session olarak kaydet
-      let sessions = prev.sessions;
-      if (prev.isRunning && prev.startTime) {
-        const cancelledSession = {
-          id: Date.now().toString(),
-          planId: prev.fastingPlan,
-          startTime: prev.startTime,
-          endTime: new Date(),
-          actualDuration: Math.round(
-            (new Date().getTime() - prev.startTime.getTime()) / 60000,
-          ),
-          targetDuration: FASTING_PLANS[prev.fastingPlan as FastingPlan] / 60,
-          status: 'cancelled' as const,
-          createdAt: prev.startTime,
-          updatedAt: new Date(),
-        };
-        sessions = [...prev.sessions, cancelledSession];
-      }
-      // Bildirim gönder (fire-and-forget)
-      if (prev.notificationsEnabled) {
-        notificationService
-          .sendLocalNotification({
-            id: `pause-${Date.now()}`,
-            title: '⏸️ Oruç Duraklatıldı',
-            body: `${prev.fastingPlan} orucunuz duraklatıldı.`,
-            data: { type: 'fasting-paused', plan: prev.fastingPlan },
-          })
-          .catch(error => {
-            console.error('❌ Duraklatma bildirimi hatası:', error);
-          });
-      }
-      const newState = {
-        ...prev,
-        isRunning: false,
-        endTime: null, // Pause edilince end time'ı sıfırla
-        sessions,
-      };
-      saveState(newState);
-      return newState;
-    });
-
-    console.log('✅ Timer durduruldu, useEffect tetiklenecek.');
-  }, []); // Bağımlılığı yok
-
-  const resetTimer = useCallback(() => {
+  const resetTimer = () => {
     console.log('🔄 resetTimer çağrıldı (sadece state günceller)');
-
     setState(prev => {
-      // Eğer aktif bir oruç varsa ve sıfırlanıyorsa, cancelled session olarak kaydet
-      let sessions = prev.sessions;
-      if (prev.isRunning && prev.startTime) {
-        const cancelledSession = {
-          id: Date.now().toString(),
-          planId: prev.fastingPlan,
-          startTime: prev.startTime,
-          endTime: new Date(),
-          actualDuration: Math.round(
-            (new Date().getTime() - prev.startTime.getTime()) / 60000,
-          ),
-          targetDuration: FASTING_PLANS[prev.fastingPlan as FastingPlan] / 60,
-          status: 'cancelled' as const,
-          createdAt: prev.startTime,
-          updatedAt: new Date(),
-        };
-        sessions = [...prev.sessions, cancelledSession];
-      }
-      // Bildirim gönder (fire-and-forget)
-      if (prev.notificationsEnabled) {
-        notificationService
-          .sendLocalNotification({
-            id: `reset-${Date.now()}`,
-            title: '🔄 Oruç Sıfırlandı',
-            body: `${prev.fastingPlan} orucunuz sıfırlandı.`,
-            data: { type: 'fasting-reset', plan: prev.fastingPlan },
-          })
-          .catch(error => {
-            console.error('❌ Sıfırlama bildirimi hatası:', error);
-          });
-      }
-      const newState = {
+      const planDuration =
+        FASTING_PLANS[prev.fastingPlan as keyof typeof FASTING_PLANS]
+          .durationSeconds;
+      return {
         ...prev,
         isRunning: false,
-        timeLeft: FASTING_PLANS[prev.fastingPlan as FastingPlan],
         startTime: null,
         endTime: null,
-        sessions,
+        timeLeft: planDuration,
       };
-      saveState(newState);
-      return newState;
     });
+  };
 
-    console.log('✅ Timer sıfırlandı, useEffect tetiklenecek.');
-  }, []); // Bağımlılığı yok
-
-  const changePlan = useCallback((newPlan: string) => {
-    if (newPlan in FASTING_PLANS) {
-      setState(prev => {
-        const newState = {
-          ...prev,
-          fastingPlan: newPlan,
-          timeLeft: FASTING_PLANS[newPlan as FastingPlan],
+  const changePlan = (plan: string) => {
+    console.log(`🔄 Plan değiştirildi: ${plan}`);
+    setState(prevState => {
+      // Eğer oruç çalışıyorsa, uyarı ver ve sıfırla
+      if (prevState.isRunning) {
+        console.warn(
+          'WARN: Oruç sırasında plan değiştirildi. Aktif oruç sıfırlandı.',
+        );
+        // Mevcut oturumu iptal etmeye veya kaydetmeye karar verebilirsiniz.
+        // Şimdilik sadece sıfırlıyoruz.
+        const newPlanDetails = FASTING_PLANS[plan];
+        return {
+          ...prevState,
           isRunning: false,
+          timeLeft: newPlanDetails.durationSeconds,
+          fastingPlan: plan,
           startTime: null,
           endTime: null,
         };
-        saveState(newState);
-        return newState;
-      });
-    }
-  }, []);
+      }
 
-  const completeSession = useCallback(() => {
-    // Bu fonksiyon artık sadece session objesini oluşturup state'i günceller.
-    // Tetikleme mekanizması yukarıdaki useEffect'e taşındı.
-    if (state.startTime) {
-      console.log('📦 Yeni oturum oluşturuluyor ve kaydediliyor...');
-      const session: FastingSession = {
-        id: Date.now().toString(),
-        planId: state.fastingPlan,
-        startTime: state.startTime,
-        endTime: new Date(),
-        actualDuration: Math.round(
-          (new Date().getTime() - state.startTime.getTime()) / 60000,
-        ), // dakika
-        targetDuration: FASTING_PLANS[state.fastingPlan as FastingPlan] / 60, // dakika
+      // Oruç çalışmıyorsa basitçe planı değiştir
+      const newPlanDetails = FASTING_PLANS[plan];
+      if (!newPlanDetails) {
+        console.error(`❌ Geçersiz plan ID'si: ${plan}`);
+        return prevState;
+      }
+      console.log(`🔄 Plan değiştirildi: ${plan}`);
+      return {
+        ...prevState,
+        fastingPlan: plan,
+        timeLeft: newPlanDetails.durationSeconds,
+      };
+    });
+  };
+
+  const completeSession = () => {
+    console.log('✅ completeSession çağrıldı');
+    setState(prev => {
+      if (!prev.startTime) {
+        console.error('❌ Oturum tamamlandı ama başlangıç zamanı yok!');
+        return prev;
+      }
+      const now = new Date();
+      const newSession: FastingSession = {
+        id: prev.startTime.getTime().toString(),
+        planId: prev.fastingPlan,
+        startTime: prev.startTime,
+        endTime: now,
         status: 'completed',
-        createdAt: state.startTime,
+        targetDuration:
+          FASTING_PLANS[prev.fastingPlan as keyof typeof FASTING_PLANS]
+            .durationSeconds / 60, // dakika olarak
+        actualDuration:
+          (now.getTime() - prev.startTime.getTime()) / (1000 * 60), // dakika olarak
+        createdAt: new Date(),
         updatedAt: new Date(),
       };
+      return {
+        ...prev,
+        isRunning: false,
+        sessions: [...prev.sessions, newSession],
+        timeLeft:
+          FASTING_PLANS[prev.fastingPlan as keyof typeof FASTING_PLANS]
+            .durationSeconds,
+      };
+    });
+  };
 
-      setState(prev => {
-        const newState = {
-          ...prev,
-          isRunning: false,
-          timeLeft: FASTING_PLANS[prev.fastingPlan as FastingPlan],
-          startTime: null,
-          endTime: null,
-          sessions: [...prev.sessions, session],
-        };
-        saveState(newState);
-        return newState;
-      });
-    }
-  }, [state.startTime, state.fastingPlan]);
-
-  const toggleNotifications = useCallback(async (enabled: boolean) => {
+  const toggleNotifications = async (enabled: boolean) => {
     setState(prev => ({ ...prev, notificationsEnabled: enabled }));
 
     if (enabled) {
@@ -442,7 +443,7 @@ export function FastingProvider({ children }: { children: ReactNode }) {
       await notificationService.cancelAllNotifications();
       scheduledNotificationIdsRef.current = [];
     }
-  }, []);
+  };
 
   const initializeNotifications = useCallback(async () => {
     try {

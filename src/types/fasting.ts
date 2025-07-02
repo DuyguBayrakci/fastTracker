@@ -1,5 +1,13 @@
 import { BaseEntity } from './index';
 
+export interface Milestone {
+  percentage: number;
+  name: string;
+  icon: string; // Emoji or icon name
+  description: string;
+  color: string;
+}
+
 export interface FastingPlan extends BaseEntity {
   name: string;
   fastingHours: number;
@@ -8,6 +16,7 @@ export interface FastingPlan extends BaseEntity {
   color: string;
   isCustom: boolean;
   isDefault?: boolean;
+  milestones?: Milestone[];
 }
 
 export interface FastingSession extends BaseEntity {
