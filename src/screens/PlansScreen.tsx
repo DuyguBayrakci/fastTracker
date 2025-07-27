@@ -66,6 +66,18 @@ export default function PlansScreen({ navigation }: PlanListScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with Back Button */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>← Geri</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Oruç Planları</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView style={styles.content}>
         <Text style={styles.title}>Oruç Tipini Değiştir</Text>
 
@@ -147,5 +159,31 @@ const styles = StyleSheet.create({
   checkIconText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#ff7043',
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  headerSpacer: {
+    width: 60, // backButton genişliği kadar
   },
 });

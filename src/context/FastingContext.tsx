@@ -78,6 +78,17 @@ export function FastingProvider({ children }: { children: ReactNode }) {
           if (parsed.startTime) parsed.startTime = new Date(parsed.startTime);
           if (parsed.endTime) parsed.endTime = new Date(parsed.endTime);
 
+          // Sessions array'indeki Date objelerini restore et
+          if (parsed.sessions && Array.isArray(parsed.sessions)) {
+            parsed.sessions = parsed.sessions.map((session: any) => ({
+              ...session,
+              startTime: new Date(session.startTime),
+              endTime: session.endTime ? new Date(session.endTime) : null,
+              createdAt: new Date(session.createdAt),
+              updatedAt: new Date(session.updatedAt),
+            }));
+          }
+
           setState(parsed);
           console.log('📱 Persisted state yüklendi:', parsed);
         }
@@ -427,21 +438,47 @@ export function FastingProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleNotifications = async (enabled: boolean) => {
-    setState(prev => ({ ...prev, notificationsEnabled: enabled }));
+    try {
+      console.log('🔄 toggleNotifications çağrıldı:', enabled);
 
-    if (enabled) {
-      // Request permission and setup recurring reminders
-      const token =
-        await notificationService.registerForPushNotificationsAsync();
-      if (token) {
-        // Schedule daily motivational reminders
-        await notificationService.scheduleMotivationalReminder();
-        await notificationService.scheduleHydrationReminder();
+      if (enabled) {
+        // Request permission and setup recurring reminders
+        const token =
+          await notificationService.registerForPushNotificationsAsync();
+        console.log('📱 Notification token:', token);
+
+        // Token olsun ya da olmasın local notification'ları schedule et
+        try {
+          // Schedule daily motivational reminders
+          await notificationService.scheduleMotivationalReminder();
+          await notificationService.scheduleHydrationReminder();
+          console.log('✅ Local notifications scheduled successfully');
+        } catch (scheduleError) {
+          console.error('❌ Schedule error:', scheduleError);
+          // Schedule hatası olsa bile devam et
+        }
+
+        // State'i güncelle
+        setState(prev => ({ ...prev, notificationsEnabled: true }));
+      } else {
+        // Cancel all notifications
+        try {
+          await notificationService.cancelAllNotifications();
+          scheduledNotificationIdsRef.current = [];
+          console.log('❌ All notifications cancelled');
+        } catch (cancelError) {
+          console.error('❌ Cancel error:', cancelError);
+          // Cancel hatası olsa bile devam et
+        }
+
+        // State'i güncelle
+        setState(prev => ({ ...prev, notificationsEnabled: false }));
       }
-    } else {
-      // Cancel all notifications
-      await notificationService.cancelAllNotifications();
-      scheduledNotificationIdsRef.current = [];
+    } catch (error) {
+      console.error('❌ toggleNotifications hatası:', error);
+      // Hata durumunda state'i geri al
+      setState(prev => ({ ...prev, notificationsEnabled: !enabled }));
+      throw error; // ProfileScreen'de yakalanacak
     }
   };
 

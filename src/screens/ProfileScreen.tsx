@@ -28,22 +28,47 @@ const MENU_ITEMS = [
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { state, toggleNotifications } = useFasting();
   const [darkMode, setDarkMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // State yüklendiğinde loading'i kapat
+  React.useEffect(() => {
+    if (state) {
+      setIsLoading(false);
+    }
+  }, [state]);
 
   const handleNotificationToggle = async (value: boolean) => {
     try {
+      console.log('🔄 handleNotificationToggle çağrıldı:', value);
       await toggleNotifications(value);
+
       if (value) {
         Alert.alert(
           'Bildirimler Aktif',
           'Oruç hatırlatmaları ve motivasyon mesajları alacaksınız.',
           [{ text: 'Tamam' }],
         );
+      } else {
+        Alert.alert(
+          'Bildirimler Kapatıldı',
+          'Bildirimler devre dışı bırakıldı.',
+          [{ text: 'Tamam' }],
+        );
       }
     } catch (error) {
+      console.error('❌ handleNotificationToggle hatası:', error);
+
+      // Hata durumunda kullanıcıya daha detaylı bilgi ver
       Alert.alert(
-        'Hata',
-        'Bildirim ayarları değiştirilemedi. Lütfen uygulama ayarlarından bildirimlerin açık olduğundan emin olun.',
-        [{ text: 'Tamam' }],
+        'Bildirim Hatası',
+        'Bildirim ayarları değiştirilemedi. Bu durum geçici olabilir. Lütfen tekrar deneyin.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Tekrar Dene',
+            onPress: () => handleNotificationToggle(value),
+          },
+        ],
       );
     }
   };
@@ -72,47 +97,120 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   const getUserStats = () => {
-    const completedSessions = state.sessions.filter(
-      s => s.status === 'completed',
-    ).length;
-    const totalSessions = state.sessions.length;
-    const successRate =
-      totalSessions > 0
-        ? Math.round((completedSessions / totalSessions) * 100)
-        : 0;
+    // Varsayılan değerler
+    const defaultStats = {
+      completedSessions: 0,
+      totalSessions: 0,
+      successRate: 0,
+      streak: 0,
+    };
 
-    // Günlük seri (streak)
-    const completedList = state.sessions.filter(s => s.status === 'completed');
-    const today = new Date();
-    let streak = 0;
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dayStart = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-      );
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      const daySession = completedList.find(
-        session =>
-          new Date(session.startTime) >= dayStart &&
-          new Date(session.startTime) < dayEnd,
-      );
-      if (daySession) {
-        streak++;
-      } else if (i === 0) {
-        break;
-      } else {
-        break;
+    try {
+      // State kontrolü - daha sıkı kontrol
+      if (!state) {
+        return defaultStats;
       }
-    }
 
-    return { completedSessions, totalSessions, successRate, streak };
+      // Sessions kontrolü - daha güvenli
+      if (!state.sessions || !Array.isArray(state.sessions)) {
+        return defaultStats;
+      }
+
+      // Güvenli filtreleme - daha sıkı kontrol
+      const validSessions = state.sessions.filter(session => {
+        return (
+          session &&
+          typeof session === 'object' &&
+          session.status &&
+          typeof session.status === 'string'
+        );
+      });
+
+      if (validSessions.length === 0) {
+        return defaultStats;
+      }
+
+      const completedSessions = validSessions.filter(
+        s => s.status === 'completed',
+      ).length;
+
+      const totalSessions = validSessions.length;
+      const successRate =
+        totalSessions > 0
+          ? Math.round((completedSessions / totalSessions) * 100)
+          : 0;
+
+      // Basit streak hesaplama - daha güvenli
+      let streak = 0;
+      try {
+        const completedList = validSessions.filter(
+          s => s.status === 'completed',
+        );
+
+        if (completedList.length === 0) {
+          return { completedSessions, totalSessions, successRate, streak: 0 };
+        }
+
+        const today = new Date();
+
+        for (let i = 0; i < 7; i++) {
+          // Sadece son 7 gün kontrol et
+          const checkDate = new Date(today);
+          checkDate.setDate(checkDate.getDate() - i);
+
+          const dayStart = new Date(
+            checkDate.getFullYear(),
+            checkDate.getMonth(),
+            checkDate.getDate(),
+          );
+          const dayEnd = new Date(dayStart);
+          dayEnd.setDate(dayEnd.getDate() + 1);
+
+          const hasSessionToday = completedList.some(session => {
+            if (!session.startTime) return false;
+            try {
+              const sessionDate = new Date(session.startTime);
+              return sessionDate >= dayStart && sessionDate < dayEnd;
+            } catch {
+              return false;
+            }
+          });
+
+          if (hasSessionToday) {
+            streak++;
+          } else if (i === 0) {
+            break; // Bugün yoksa streak bitir
+          } else {
+            break; // Aradaki gün yoksa streak bitir
+          }
+        }
+      } catch (streakError) {
+        console.error('❌ Streak calculation error:', streakError);
+        streak = 0;
+      }
+
+      return { completedSessions, totalSessions, successRate, streak };
+    } catch (error) {
+      console.error('❌ getUserStats error:', error);
+      return defaultStats;
+    }
   };
 
   const stats = getUserStats();
+
+  // Loading durumunda basit bir ekran göster
+  if (isLoading || !state) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Profil</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -126,7 +224,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.avatarText}>👤</Text>
           </View>
           <Text style={styles.name}>FastTracker Kullanıcısı</Text>
-          <Text style={styles.email}>Mevcut Plan: {state.fastingPlan}</Text>
+          <Text style={styles.email}>
+            Mevcut Plan:{' '}
+            {state && state.fastingPlan ? state.fastingPlan : '16:8'}
+          </Text>
 
           {/* User Stats */}
           <View style={styles.userStats}>
@@ -156,10 +257,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               </Text>
             </View>
             <Switch
-              value={state.notificationsEnabled}
+              value={Boolean(state && state.notificationsEnabled)}
               onValueChange={handleNotificationToggle}
               trackColor={{ false: '#E1E5E9', true: '#ffab91' }}
-              thumbColor={state.notificationsEnabled ? '#ff7043' : '#FFFFFF'}
+              thumbColor={
+                Boolean(state && state.notificationsEnabled)
+                  ? '#ff7043'
+                  : '#FFFFFF'
+              }
             />
           </View>
 
@@ -204,23 +309,24 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         </View>
 
         {/* Notification Status */}
-        {state.notificationsEnabled && (
+        {Boolean(state && state.notificationsEnabled) && (
           <View style={styles.notificationInfo}>
             <Text style={styles.notificationTitle}>🔔 Aktif Hatırlatmalar</Text>
             <Text style={styles.notificationText}>
-              <span className="notificationDot">•</span> Oruç başlama ve bitiş
-              hatırlatmaları
+              <Text style={styles.notificationDot}>•</Text> Oruç başlama ve
+              bitiş hatırlatmaları
             </Text>
             <Text style={styles.notificationText}>
-              <span className="notificationDot">•</span> Günlük motivasyon
+              <Text style={styles.notificationDot}>•</Text> Günlük motivasyon
               mesajları (18:00)
             </Text>
             <Text style={styles.notificationText}>
-              <span className="notificationDot">•</span> Su içme hatırlatması
+              <Text style={styles.notificationDot}>•</Text> Su içme hatırlatması
               (12:00)
             </Text>
             <Text style={styles.notificationText}>
-              <span className="notificationDot">•</span> İlerleme güncellemeleri
+              <Text style={styles.notificationDot}>•</Text> İlerleme
+              güncellemeleri
             </Text>
           </View>
         )}
@@ -392,5 +498,15 @@ const styles = StyleSheet.create({
   },
   notificationDot: {
     color: '#ff7043',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666666',
   },
 });
